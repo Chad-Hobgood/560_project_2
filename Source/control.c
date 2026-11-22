@@ -5,6 +5,7 @@
 #include "GPIO_defs.h"
 #include "debug.h"
 #include "control.h"
+#include "config.h"
 
 #include "timers.h"
 #include "delay.h"
@@ -37,6 +38,9 @@ int32_t pGain_8 = PGAIN_8; // proportional gain numerator scaled by 2^8
 volatile SCOPE_STATE_E g_scope_state = Armed; 
 volatile __ALIGNED(256) uint16_t g_set_sample[SAM_BUF_SIZE];
 volatile __ALIGNED(256) uint16_t g_meas_sample[SAM_BUF_SIZE];
+
+
+volatile char buf_state = BUF_IDLE; 
 
 SPid plantPID = {0, // dState
 	0, // iState
@@ -125,15 +129,47 @@ void Control_HBLED(void) {
 	g_measured_current_mA = (res*1500)>>16; // Overflow errors with V_REF_MV*MA_SCALING_FACTOR)/(ADC_FULL_SCALE*R_SENSE)
 
 	// Save samples to buffer for scope display
-	g_meas_sample[sample_idx] = res;
-	g_set_sample[sample_idx] = g_set_current_code;
 	
-		sample_idx++; 										
-		if (sample_idx >= SAM_BUF_SIZE) { 
-			sample_idx = 0;
-		}																	
-	prev_set_current_mA = g_set_current_mA;
+	//new addition start ========================
 	
+	switch (buf_state){
+			case 	(BUF_IDLE): //when it is in the waiting mode
+						//if the prev measured value is below the value for the threshold 
+						//AND the current is above the threshold now
+						if ((prev_set_current_mA < threshold_mA)&& (g_set_current_mA >>threshold_mA)){
+							buf_state = BUF_BUSY; //should fall through to the next state 
+							sample_idx = 0; //set the sample index to be 0
+						}
+						else{break;}
+						
+			case 	(BUF_BUSY): // when the buffer is idle
+				
+			
+						//this block is all prof dean start
+						g_meas_sample[sample_idx] = res;
+						g_set_sample[sample_idx] = g_set_current_code;
+						//g_set_Current_mA is global
+	
+						sample_idx++; 										
+						if (sample_idx >= SAM_BUF_SIZE) { //the max is 960, so error checking is if its above 960 we have an issue
+								buf_state = BUF_FULL; //new addition, when full say its full #true
+						}		
+						//prof dean end
+							break; 
+			case 	(BUF_FULL): //when the buffer is full
+							break; //whenn full do nothing just wait for other things to advance it 
+			case	(BUF_DRAW): //when the buffer is drawing do nothing
+							break;
+			default:
+				//oppsises
+			buf_state = BUF_IDLE; //go back to the buffer being idle
+	}
+	
+			
+	//new addition end ======================================	
+		
+			prev_set_current_mA = g_set_current_mA;
+		
 	if (g_enable_control) {
 		switch (control_mode) {
 			case OpenLoop:

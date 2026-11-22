@@ -27,6 +27,7 @@
 void Thread_Read_Touchscreen(void * arg); // 
 void Thread_Draw_Waveforms(void * arg);
 void Thread_Draw_UI_Controls(void * arg);
+extern volatile char buf_state; 
 
 
 osThreadId_t t_DW, t_DUC;
@@ -95,29 +96,46 @@ void Thread_Draw_Waveforms(void * arg) {
 	uint32_t tick;
 	
 	// Initialization
-	osMutexAcquire(LCD_mutex, osWaitForever); // get LCD permission
-	UI_Draw_Waveforms();
-	osMutexRelease(LCD_mutex);		// relinquish LCD permission
+	
+	
+	//only try to get the muxet and write to the LCD if we have something even in the init case
+	if((buf_state == BUF_DRAW) || (buf_state == BUF_FULL)){
+		osMutexAcquire(LCD_mutex, osWaitForever); // get LCD permission
+		UI_Draw_Waveforms();
+		osMutexRelease(LCD_mutex);		// relinquish LCD permission
+	}
+	
 	tick = osKernelGetTickCount();        // retrieve the number of system ticks
+	
+	
 	
 		// Regular operation
 	while (1) {
 		tick += THREAD_DRAW_WAVEFORM_PERIOD_TICKS;
 		osDelayUntil(tick);
+		
+		//if the buffer can even be accessed to show that things are acceptable for deawing
+		if((buf_state == BUF_DRAW) || (buf_state == BUF_FULL)){
+
 		DEBUG_START(DBG_T_DRAW_WVFMS_POS);  // Show thread's work has started
 #if USE_LCD_MUTEX_LEVEL==1
 			DEBUG_START(DBG_BLOCKING_LCD_POS);
 			osMutexAcquire(LCD_mutex, osWaitForever); // get LCD permission
 			DEBUG_STOP(DBG_BLOCKING_LCD_POS);
 #endif
-
+			
 			UI_Draw_Waveforms(); // Update scope part of screen with waveforms
-
+		
 #if USE_LCD_MUTEX_LEVEL==1
 			osMutexRelease(LCD_mutex);	// relinquish LCD permission
 #endif
 		DEBUG_STOP(DBG_T_DRAW_WVFMS_POS); // Show thread's work is done
+			buf_state = BUF_IDLE; //say the thread can be done
 	}
+		
+	
+	
+		}
 }
 
 void Thread_Draw_UI_Controls(void * arg) {
