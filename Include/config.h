@@ -25,4 +25,17 @@
 #define READ_FULL_XYZ 1 
 #define I2C_ICR_VALUE 0x20 
 
+// SYNCING ============================================
+
+#define SCOPE_SYNC_WITH_RTOS 1 	//this is the directive we ill need to have it
+																//if 1 our code will use the RTOS, if 0 then its just state machine
+
+//STATES ===============================================
+
+#define WAIT 'w' //do nothing
+#define BUF_BUSY 'b' //is actiuvaley taking readings
+#define BUF_FULL  'f' //is full
+#define BUF_DRAW  'd'//buffer is being accessed for the drawing
+#define BUF_IDLE  'i'//the buffer is waiting for a trigger condition
+
 #endif // CONFIG_H

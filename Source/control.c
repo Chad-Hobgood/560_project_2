@@ -12,6 +12,12 @@
 #include "UI.h"
 #include "FX.h"
 
+
+//this is the PID from the control theory stuff see 308)
+
+
+
+
 volatile int g_duty_cycle = 5;  // global to give debugger access
 
 volatile int g_enable_flash = 1;
@@ -49,6 +55,9 @@ SPidFX plantPID_FX = {FL_TO_FX(0), // dState
 	I_GAIN_FX, // iGain
 	D_GAIN_FX  // dGain
 };
+
+
+// this is like the damping stuff
 
 float UpdatePID(SPid * pid, float error, float position){
 	float pTerm, dTerm, iTerm;
@@ -91,6 +100,8 @@ FX16_16 UpdatePID_FX(SPidFX * pid, FX16_16 error_FX, FX16_16 position_FX){
 	return ret_val;
 }
 
+// THIS IS THE IMPORTTANT ONE
+//https://docs.google.com/document/d/1TuRgg6Am0rMVVy_BB_ZIf1yLuQfigy6DsJYNeDijnLI/edit?tab=t.0 HAS NOTES
 void Control_HBLED(void) {
 	uint16_t res;
 	FX16_16 change_FX, error_FX;
@@ -99,6 +110,10 @@ void Control_HBLED(void) {
 	static int threshold_mA = SCOPE_TRIGGER_THRESHOLD_mA;
 	
 	DEBUG_START(DBG_CONTROLLER_POS);
+	
+	
+	// this is the like optional compilation
+	//we will have to use both structures to get the project working
 	
 #if USE_ADC_INTERRUPT
 	// already completed conversion, so don't wait

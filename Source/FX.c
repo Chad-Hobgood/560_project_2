@@ -1,5 +1,10 @@
 #include "FX.h"
 
+
+//this is fixed point arithmatic functions
+//https://www.reddit.com/r/explainlikeimfive/comments/ae48zq/eli5what_are_the_advantages_and_disadvantages_of/
+//
+
 FX16_16 Multiply_FX(FX16_16 a, FX16_16 b) {
 	int64_t p, pa, pb;
 	// Long multiply first. 
