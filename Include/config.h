@@ -27,7 +27,7 @@
 
 // SYNCING ============================================
 
-#define SCOPE_SYNC_WITH_RTOS 1 	//this is the directive we ill need to have it
+#define SCOPE_SYNC_WITH_RTOS 0 	//this is the directive we ill need to have it
 																//if 1 our code will use the RTOS, if 0 then its just state machine
 
 //STATES ===============================================

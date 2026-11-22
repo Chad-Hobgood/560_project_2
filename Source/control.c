@@ -130,8 +130,8 @@ void Control_HBLED(void) {
 
 	// Save samples to buffer for scope display
 	
-	//new addition start ========================
-	
+	//new addition start for not RTOS ========================
+	#if !SCOPE_SYNC_WITH_RTOS 
 	switch (buf_state){
 			case 	(BUF_IDLE): //when it is in the waiting mode
 						//if the prev measured value is below the value for the threshold 
@@ -164,7 +164,7 @@ void Control_HBLED(void) {
 				//oppsises
 			buf_state = BUF_IDLE; //go back to the buffer being idle
 	}
-	
+	#endif
 			
 	//new addition end ======================================	
 		
