@@ -22,13 +22,20 @@
 #include "ADC.h"
 #include "MMA8451.h"
 #include "fault.h"
-
+#include "config.h"
 
 void Thread_Read_Touchscreen(void * arg); // 
 void Thread_Draw_Waveforms(void * arg);
 void Thread_Draw_UI_Controls(void * arg);
-extern volatile char buf_state; 
 
+#if !SCOPE_SYNC_WITH_RTOS
+extern volatile char buf_state; 
+#endif
+
+//creation of OS event flag as a global variable
+#if SCOPE_SYNC_WITH_RTOS
+osEventFlagsId_t volatile scope_flags = NULL;
+#endif
 
 osThreadId_t t_DW, t_DUC;
 const osThreadAttr_t Draw_Waveforms_attr = {
@@ -99,22 +106,84 @@ void Thread_Draw_Waveforms(void * arg) {
 	
 	
 	//only try to get the muxet and write to the LCD if we have something even in the init case
+	
+#if !SCOPE_SYNC_WITH_RTOS 
 	if((buf_state == BUF_DRAW) || (buf_state == BUF_FULL)){
 		osMutexAcquire(LCD_mutex, osWaitForever); // get LCD permission
 		UI_Draw_Waveforms();
 		osMutexRelease(LCD_mutex);		// relinquish LCD permission
 	}
+#endif
 	
-	tick = osKernelGetTickCount();        // retrieve the number of system ticks
+#if SCOPE_SYNC_WITH_RTOS 
+	
+		osMutexAcquire(LCD_mutex, osWaitForever); // get LCD permission
+		UI_Draw_Waveforms();
+		osMutexRelease(LCD_mutex);		// relinquish LCD permission
+	
+	//this needs to make the RTOS event flags
+	scope_flags = osEventFlagsNew(NULL); //this makes a new event flag
+	if(scope_flags == NULL){ //if it didn't make right
+			osThreadExit(); //send the thread to the shadow relam
+	}
+	
+	//if there is no error, have it set the flag to be that the interrupt can do things
+	if (osEventFlagsSet(scope_flags, SCOPE_FLAG_REARM) & osFlagsError) {
+        osThreadExit();
+    }
+	
+	while (1){	
+		//make a new local flag
+		  uint32_t flags = osEventFlagsWait(
+            scope_flags, SCOPE_FLAG_FULL, osFlagsWaitAny, osWaitForever);
+				
+			//if there is a error in the flag begone thread
+        if (flags & osFlagsError) {
+            osThreadExit();
+        }
+				
+				//OS debug section start
+        DEBUG_START(DBG_T_DRAW_WVFMS_POS);
+		
+				//copy and paste the conditional compile from the source we were given
+				#if USE_LCD_MUTEX_LEVEL == 1
+								DEBUG_START(DBG_BLOCKING_LCD_POS);
+								osMutexAcquire(LCD_mutex, osWaitForever);
+								DEBUG_STOP(DBG_BLOCKING_LCD_POS);
+				#endif
+
+								UI_Draw_Waveforms(); //we have the mutex and the right flag just go from there
+
+				#if USE_LCD_MUTEX_LEVEL == 1
+								osMutexRelease(LCD_mutex);
+				#endif
+				
+				//end the debvug flag on the os
+				 DEBUG_STOP(DBG_T_DRAW_WVFMS_POS);
+
+				//pass the flag back to theinterrup[t to say run again with the flag set to zero from the macro
+					if (osEventFlagsSet(scope_flags, SCOPE_FLAG_REARM) & osFlagsError) {
+											osThreadExit();
+									}
+	
+#endif	
+	
+		
+		
+	        // retrieve the number of system ticks
 	
 	
-	
+	#if !SCOPE_SYNC_WITH_RTOS 
+		tick = osKernelGetTickCount();
 		// Regular operation
 	while (1) {
 		tick += THREAD_DRAW_WAVEFORM_PERIOD_TICKS;
 		osDelayUntil(tick);
 		
 		//if the buffer can even be accessed to show that things are acceptable for deawing
+		
+// State machine section ====================		
+
 		if((buf_state == BUF_DRAW) || (buf_state == BUF_FULL)){
 
 		DEBUG_START(DBG_T_DRAW_WVFMS_POS);  // Show thread's work has started
@@ -133,7 +202,7 @@ void Thread_Draw_Waveforms(void * arg) {
 			buf_state = BUF_IDLE; //say the thread can be done
 	}
 		
-	
+	#endif /// state mahcine end ===============
 	
 		}
 }

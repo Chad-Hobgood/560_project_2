@@ -126,6 +126,19 @@ extern volatile int g_duty_cycle;  // global to give debugger access
 #define SAM_BUF_SIZE   (960)
 #define SCOPE_TRIGGER_THRESHOLD_mA  (1)
 
+
+
+//note on creating the OS flags
+
+#include <cmsis_os2.h>
+//macros for OS flags that telkl it what to do
+#define SCOPE_FLAG_FULL   (1U << 0)
+#define SCOPE_FLAG_REARM  (1U << 1)
+
+extern osEventFlagsId_t volatile scope_flags;
+
+
+
 extern volatile uint16_t g_set_sample[SAM_BUF_SIZE];
 extern volatile uint16_t g_meas_sample[SAM_BUF_SIZE];
 extern volatile SCOPE_STATE_E g_scope_state;

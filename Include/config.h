@@ -27,15 +27,22 @@
 
 // SYNCING ============================================
 
-#define SCOPE_SYNC_WITH_RTOS 0 	//this is the directive we ill need to have it
+#define SCOPE_SYNC_WITH_RTOS 1 	//this is the directive we ill need to have it
 																//if 1 our code will use the RTOS, if 0 then its just state machine
 
 //STATES ===============================================
-
+//these are for the state machine
 #define WAIT 'w' //do nothing
 #define BUF_BUSY 'b' //is actiuvaley taking readings
 #define BUF_FULL  'f' //is full
 #define BUF_DRAW  'd'//buffer is being accessed for the drawing
 #define BUF_IDLE  'i'//the buffer is waiting for a trigger condition
+
+//these are for the TROS stuff
+#define RTOS_WAIT 0
+#define RTOS_ARMED 1
+#define RTOS_CAPTURING 2
+
+
 
 #endif // CONFIG_H

@@ -38,6 +38,9 @@ int32_t pGain_8 = PGAIN_8; // proportional gain numerator scaled by 2^8
 volatile SCOPE_STATE_E g_scope_state = Armed; 
 volatile __ALIGNED(256) uint16_t g_set_sample[SAM_BUF_SIZE];
 volatile __ALIGNED(256) uint16_t g_meas_sample[SAM_BUF_SIZE];
+int rtos_state = RTOS_WAIT;
+
+extern osEventFlagsId_t volatile scope_flags;
 
 
 volatile char buf_state = BUF_IDLE; 
@@ -136,7 +139,7 @@ void Control_HBLED(void) {
 			case 	(BUF_IDLE): //when it is in the waiting mode
 						//if the prev measured value is below the value for the threshold 
 						//AND the current is above the threshold now
-						if ((prev_set_current_mA < threshold_mA)&& (g_set_current_mA >>threshold_mA)){
+						if ((prev_set_current_mA < threshold_mA)&& (g_set_current_mA > threshold_mA)){
 							buf_state = BUF_BUSY; //should fall through to the next state 
 							sample_idx = 0; //set the sample index to be 0
 						}
@@ -166,8 +169,66 @@ void Control_HBLED(void) {
 	}
 	#endif
 			
-	//new addition end ======================================	
-		
+	//new addition end  for not RTOS ======================================	
+	
+	
+	
+	
+	
+	// ======= new rtos section
+	
+#if SCOPE_SYNC_WITH_RTOS 
+	int flag_result; //local to store f;ag value witout corrupting flag
+	
+	//if the scope flags exists
+	if(scope_flags != NULL){
+		//do a switch case based on rtos state
+		switch(rtos_state){
+			case RTOS_WAIT: 
+				//get a copy of the flag result
+					flag_result = osEventFlagsWait(scope_flags, SCOPE_FLAG_REARM, osFlagsWaitAny, 0U);
+					//if there is an error with the flagg resul, exit				
+					if (flag_result & osFlagsError) {break;}
+					rtos_state = RTOS_ARMED;
+			case RTOS_ARMED:
+						//if we are below the threshold and the last one was above it do nothing
+						//this is the smae structure but opposite trigger condition in the other state machine 
+					  if (!(prev_set_current_mA <= threshold_mA && g_set_current_mA > threshold_mA)) {
+                    break;
+                }
+						//all gas no break because we want to be falling into the next state to capture
+						// 		set the start of array to be the first value
+						sample_idx = 0;
+						rtos_state = RTOS_CAPTURING;
+			case RTOS_CAPTURING: 
+					//put things into array
+						g_meas_sample[sample_idx] = res;
+            g_set_sample[sample_idx] = g_set_current_code;
+            sample_idx++;		//move index
+			
+				//if index too big were done
+						if (sample_idx >= SAM_BUF_SIZE) {
+                    rtos_state = RTOS_WAIT; //set the state to be that were done
+									//tell the flag that were full
+							 flag_result = osEventFlagsSet(scope_flags, SCOPE_FLAG_FULL);
+						}
+							break; //WE DONE
+						
+			//if we have a mistake				
+			default:
+							rtos_state = RTOS_WAIT;	//go to beginning
+			break;
+			
+		} //closes switch
+	} //closes if
+	
+	
+	
+	#endif
+	//end rtos section ==============
+
+
+	
 			prev_set_current_mA = g_set_current_mA;
 		
 	if (g_enable_control) {
